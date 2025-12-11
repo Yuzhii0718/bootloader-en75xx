@@ -1,0 +1,122 @@
+
+#UNOPEN_FILE_DELETE means unopen files needed to be deleted
+UNOPEN_FILE_DELETE=$(BOOTROM_DIR)/ddr_cal/*.c \
+$(BOOTROM_DIR)/ddr_cal_mt7505/*.c \
+$(BOOTROM_DIR)/ddr_cal_en7512/*.c \
+$(BOOTROM_DIR)/ram_init/*.c \
+$(BOOTROM_DIR)/ram_init/ddr_cal_en7580/*.c \
+$(BOOTROM_DIR)/spram_ext/system.c \
+$(BOOTROM_DIR)/bootram/lib/efuse.c \
+$(BOOTROM_DIR)/bootram/include/efuse.h \
+$(BOOTROM_DIR)/bootram/lib/crypto/rsa_public_key.c \
+$(BOOTROM_DIR)/bootram/include/crypto/rsa_public_key.h
+
+ifneq ($(strip $(TCSUPPORT_CPU_EN7516) $(TCSUPPORT_CPU_EN7527) $(TCSUPPORT_CPU_EN7580)),)
+UNOPEN_FILE_DELETE += $(BOOTROM_DIR)/lzma/main.c
+UNOPEN_FILE_DELETE += $(BOOTROM_DIR)/en7516_boot/start.S_7512_final
+UNOPEN_FILE_DELETE += $(BOOTROM_DIR)/en7516_boot/boot2/init/boot2.S
+UNOPEN_FILE_DELETE += $(BOOTROM_DIR)/en7516_boot/move_data/init/move_data.S
+endif
+
+ifeq ($(strip $(TCSUPPORT_CPU_MT7505)),)
+UNOPEN_FILE_DELETE += $(BOOTROM_DIR)/ddr_cal_mt7505 \
+$(BOOTROM_DIR)/start.S_7505_final
+endif
+
+ifneq ($(strip $(TCSUPPORT_CPU_EN7516) $(TCSUPPORT_CPU_EN7527) $(TCSUPPORT_CPU_EN7580)),)
+UNOPEN_FILE_DELETE += $(BOOTROM_DIR)/ddr_cal
+endif
+
+ifeq ($(strip $(TCSUPPORT_CPU_EN7512) $(TCSUPPORT_CPU_EN7521) $(TCSUPPORT_CPU_EN7516) $(TCSUPPORT_CPU_EN7527) $(TCSUPPORT_CPU_EN7580)),) 
+UNOPEN_FILE_DELETE += $(BOOTROM_DIR)/ddr_cal_en7512 \
+$(BOOTROM_DIR)/en7512_boot \
+$(BOOTROM_DIR)/ld_spram_en7512.script \
+$(BOOTROM_DIR)/start.S_7512_final 
+endif
+
+ifneq ($(strip $(TCSUPPORT_CPU_EN7512) $(TCSUPPORT_CPU_EN7521)),)
+UNOPEN_FILE_DELETE += $(BOOTROM_DIR)/ddr_cal
+ifeq ($(strip $(TCSUPPORT_MIPS_1004K)),)
+UNOPEN_FILE_DELETE += $(BOOTROM_DIR)/en7516_boot
+endif
+endif
+
+backup_bootrom:
+#ifneq ($(strip $(TCSUPPORT_CPU_MT7510)),)
+ifneq ($(strip $(TCSUPPORT_CPU_EN7580)),)
+	@echo "release Bootrom for EN7580"
+	mkdir -p $(BOOTROM_DIR)/ram_init/reserved
+	cp -Rf $(BOOTROM_DIR)/ram_init/output/* $(BOOTROM_DIR)/ram_init/reserved/
+	cp -Rf $(BOOTROM_DIR)/ram_init/spram.c $(BOOTROM_DIR)/ram_init/reserved/
+	cp -Rf $(BOOTROM_DIR)/spram_ext/system.o $(BOOTROM_DIR)/ram_init/reserved/
+else
+ifneq ($(strip $(TCSUPPORT_CPU_EN7512) $(TCSUPPORT_CPU_EN7521)),)
+	@echo "release Bootrom for MT751221"
+	mkdir -p $(BOOTROM_DIR)/ddr_cal_en7512/reserved
+	cp -Rf $(BOOTROM_DIR)/ddr_cal_en7512/output/* $(BOOTROM_DIR)/ddr_cal_en7512/reserved/
+	cp -Rf $(BOOTROM_DIR)/ddr_cal_en7512/spram.c $(BOOTROM_DIR)/ddr_cal_en7512/reserved/
+	cp -Rf $(BOOTROM_DIR)/spram_ext/system.o $(BOOTROM_DIR)/ddr_cal_en7512/reserved/
+else
+ifneq ($(strip $(TCSUPPORT_CPU_MT7510) $(TCSUPPORT_CPU_MT7520)),)
+	@echo "release Bootrom for MT751020"
+	mkdir -p $(BOOTROM_DIR)/ddr_cal/reserved
+	cp -Rf $(BOOTROM_DIR)/ddr_cal/output/* $(BOOTROM_DIR)/ddr_cal/reserved/
+	cp -Rf $(BOOTROM_DIR)/ddr_cal/spram.c $(BOOTROM_DIR)/ddr_cal/reserved/
+else
+ifneq ($(strip $(TCSUPPORT_CPU_MT7505)),)
+	@echo "release Bootrom for MT7505"
+	mkdir -p $(BOOTROM_DIR)/ddr_cal_mt7505/reserved
+	cp -Rf $(BOOTROM_DIR)/ddr_cal_mt7505/output/* $(BOOTROM_DIR)/ddr_cal_mt7505/reserved/
+	cp -Rf $(BOOTROM_DIR)/ddr_cal_mt7505/spram.c $(BOOTROM_DIR)/ddr_cal_mt7505/reserved/
+else
+	echo "nothing to do!";
+endif
+endif
+endif
+endif
+
+release_makefile_boot:
+#copy makefiles
+	cp $(BOOTROM_DIR)/ddr_cal/Makefile.release $(BOOTROM_DIR)/ddr_cal/Makefile
+	cp $(BOOTROM_DIR)/ddr_cal_mt7505/Makefile.release $(BOOTROM_DIR)/ddr_cal_mt7505/Makefile
+	cp $(BOOTROM_DIR)/ddr_cal_en7512/Makefile.release $(BOOTROM_DIR)/ddr_cal_en7512/Makefile
+	cp $(BOOTROM_DIR)/ram_init/Makefile.release $(BOOTROM_DIR)/ram_init/Makefile
+
+define Boot/Delete
+	echo "delete unopen code!"
+	$(foreach fname, $(strip $(UNOPEN_FILE_DELETE)), rm -rf $(fname) ) 
+
+endef
+
+release_boot: release_makefile_boot
+	echo "release bootrom"
+
+	
+	$(call Boot/Delete)
+	if [ $$(ls -A $(BOOTROM_DIR)/ddr_cal/reserved|wc -w) -gt 0 ]; then\
+		cp -Rf $(BOOTROM_DIR)/ddr_cal/reserved/* $(BOOTROM_DIR)/ddr_cal/output/.;\
+		cp -Rf $(BOOTROM_DIR)/ddr_cal/reserved/spram.c $(BOOTROM_DIR)/ddr_cal/.;\
+		rm -rf $(BOOTROM_DIR)/ddr_cal/output/*.c;\
+		rm -rf $(BOOTROM_DIR)/ddr_cal/reserved;\
+	fi
+	if [ $$(ls -A $(BOOTROM_DIR)/ddr_cal_mt7505/reserved|wc -w) -gt 0 ]; then\
+		cp -Rf $(BOOTROM_DIR)/ddr_cal_mt7505/reserved/* $(BOOTROM_DIR)/ddr_cal_mt7505/output/.;\
+		cp -Rf $(BOOTROM_DIR)/ddr_cal_mt7505/reserved/spram.c $(BOOTROM_DIR)/ddr_cal_mt7505/.;\
+		rm -rf $(BOOTROM_DIR)/ddr_cal_mt7505/output/*.c;\
+		rm -rf $(BOOTROM_DIR)/ddr_cal_mt7505/reserved;\
+	fi
+	if [ $$(ls -A $(BOOTROM_DIR)/ddr_cal_en7512/reserved|wc -w) -gt 0 ]; then\
+                cp -Rf $(BOOTROM_DIR)/ddr_cal_en7512/reserved/* $(BOOTROM_DIR)/ddr_cal_en7512/output/.;\
+                cp -Rf $(BOOTROM_DIR)/ddr_cal_en7512/reserved/spram.c $(BOOTROM_DIR)/ddr_cal_en7512/.;\
+                cp -Rf $(BOOTROM_DIR)/ddr_cal_en7512/reserved/system.o $(BOOTROM_DIR)/spram_ext/.;\
+                rm -rf $(BOOTROM_DIR)/ddr_cal_en7512/output/*.c;\
+                rm -rf $(BOOTROM_DIR)/ddr_cal_en7512/reserved;\
+	fi
+	if [ $$(ls -A $(BOOTROM_DIR)/ram_init/reserved|wc -w) -gt 0 ]; then\
+                cp -Rf $(BOOTROM_DIR)/ram_init/reserved/* $(BOOTROM_DIR)/ram_init/output/.;\
+                cp -Rf $(BOOTROM_DIR)/ram_init/reserved/spram.c $(BOOTROM_DIR)/ram_init/.;\
+                cp -Rf $(BOOTROM_DIR)/ram_init/reserved/system.o $(BOOTROM_DIR)/spram_ext/.;\
+                rm -rf $(BOOTROM_DIR)/ram_init/output/*.c;\
+                rm -rf $(BOOTROM_DIR)/ram_init/reserved;\
+	fi
+	
